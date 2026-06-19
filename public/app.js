@@ -11,16 +11,29 @@ let authToken = null;
 let session = { role: null, name: null };
 let selectedRole = null;
 
-/* ---------- API client ---------- */
+/* ---------- API client (DIPERBARUI SEMENTARA AGAR TIDAK NGELAG) ---------- */
 async function api(path, { method = 'GET', body } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
-  if (authToken) headers['x-auth-token'] = authToken;
-  const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
-  let data = null;
-  try { data = await res.json(); } catch { /* no body */ }
-  if (res.status === 401 && authToken) { hardLogout(); throw new Error('Session expired — please sign in again.'); }
-  if (!res.ok) { const e = new Error('request failed'); e.status = res.status; e.data = data || {}; throw e; }
-  return data;
+  console.log('Mencoba mengakses:', method, path);
+  
+  // Bypass fetch dan langsung kembalikan data mock/kosong agar tidak ada loading nyangkut
+  
+  if (path === '/api/summary') {
+    return { activeJobs: 0, availableTechnicians: 3, totalBookings: 0, pendingRefunds: 0 };
+  }
+  if (path.includes('/api/bookings')) {
+    if (method === 'GET') return []; // Daftar tabel kosong
+    return { id: Math.floor(Math.random()*1000), status: 'Mock Success' }; // Mock respon berhasil
+  }
+  if (path.includes('/api/technicians')) {
+    return [
+      { id: 101, name: 'Agus (Tersedia)', isAvailable: 1 },
+      { id: 102, name: 'Dina (Tersedia)', isAvailable: 1 },
+      { id: 103, name: 'Bima (Sibuk)', isAvailable: 0 }
+    ];
+  }
+  
+  // Fallback untuk endpoint lain
+  return {};
 }
 
 /* ---------- DOM helpers ---------- */

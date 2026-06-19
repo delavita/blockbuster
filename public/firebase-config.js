@@ -15,10 +15,11 @@
 const firebaseConfig = {
   apiKey: "AIzaSyBsLFoFOZkDlfAuncaNu7EbStGUP97zNYs",
   authDomain: "vita-64d71.firebaseapp.com",
+  databaseURL: "https://vita-64d71-default-rtdb.asia-southeast1.firebasedatabase.app",
   projectId: "vita-64d71",
   storageBucket: "vita-64d71.firebasestorage.app",
   messagingSenderId: "1008164207419",
-  appId: "1:1008164207419:web:ab07ab424d4cc1d101551e"
+  appId: "1:1008164207419:web:be6d1fe677e1b18101551e"
 };
 
 // Initialise Firebase (compat SDK — works in plain <script> tags)
