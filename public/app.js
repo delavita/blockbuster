@@ -11,29 +11,16 @@ let authToken = null;
 let session = { role: null, name: null };
 let selectedRole = null;
 
-/* ---------- API client (DIPERBARUI SEMENTARA AGAR TIDAK NGELAG) ---------- */
+/* ---------- API client ---------- */
 async function api(path, { method = 'GET', body } = {}) {
-  console.log('Mencoba mengakses:', method, path);
-  
-  // Bypass fetch dan langsung kembalikan data mock/kosong agar tidak ada loading nyangkut
-  
-  if (path === '/api/summary') {
-    return { activeJobs: 0, availableTechnicians: 3, totalBookings: 0, pendingRefunds: 0 };
-  }
-  if (path.includes('/api/bookings')) {
-    if (method === 'GET') return []; // Daftar tabel kosong
-    return { id: Math.floor(Math.random()*1000), status: 'Mock Success' }; // Mock respon berhasil
-  }
-  if (path.includes('/api/technicians')) {
-    return [
-      { id: 101, name: 'Agus (Tersedia)', isAvailable: 1 },
-      { id: 102, name: 'Dina (Tersedia)', isAvailable: 1 },
-      { id: 103, name: 'Bima (Sibuk)', isAvailable: 0 }
-    ];
-  }
-  
-  // Fallback untuk endpoint lain
-  return {};
+  const headers = { 'Content-Type': 'application/json' };
+  if (authToken) headers['x-auth-token'] = authToken;
+  const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  let data = null;
+  try { data = await res.json(); } catch { /* no body */ }
+  if (res.status === 401 && authToken) { hardLogout(); throw new Error('Session expired — please sign in again.'); }
+  if (!res.ok) { const e = new Error('request failed'); e.status = res.status; e.data = data || {}; throw e; }
+  return data;
 }
 
 /* ---------- DOM helpers ---------- */
@@ -59,10 +46,15 @@ function closeModal() { $('modalOverlay').classList.remove('open'); $('modalBox'
    ROUTING + RBAC
    ============================================================= */
 function showScreen(which) {
-  ['landing', 'customer', 'management'].forEach(s => $('screen-' + s).classList.add('hidden'));
+  // Tambahkan 'loading' ke dalam array supaya ikut disembunyikan
+  ['loading', 'landing', 'customer', 'management'].forEach(s => {
+    const el = $('screen-' + s);
+    if (el) el.classList.add('hidden');
+  });
   $('screen-' + which).classList.remove('hidden');
   window.scrollTo(0, 0);
 }
+
 function selectRole(role) {
   selectedRole = role;
   $('roleCustomerBtn').classList.toggle('active', role === 'customer');
@@ -70,34 +62,43 @@ function selectRole(role) {
   hide('loginError');
 }
 
-async function login() {
+// Tambahkan fungsi switchTab yang dipanggil HTML
+function switchTab(tab) {
+  $('tabLogin').classList.toggle('active', tab === 'login');
+  $('tabRegister').classList.toggle('active', tab === 'register');
+  if (tab === 'login') {
+    $('panelLogin').classList.remove('hidden');
+    $('panelRegister').classList.add('hidden');
+  } else {
+    $('panelLogin').classList.add('hidden');
+    $('panelRegister').classList.remove('hidden');
+  }
+}
+
+// Sesuaikan nama fungsi jadi doLogin() biar nyambung sama HTML
+async function doLogin() {
   hide('loginError');
-  const email = $('loginName').value.trim(); // Firebase menggunakan Email
+  const email = $('loginEmail').value.trim(); // Di HTML ID-nya loginEmail, bukan loginName
   const password = $('loginPass').value;
 
-  // Pastikan user sudah memilih role
   if (!selectedRole) {
     showBanner('loginError', 'Pilih peran terlebih dahulu:', ['Silakan klik Customer atau Management.']);
     return;
   }
 
   try {
-    // 1. Memanggil Firebase Authentication
-    const userCredential = await window.signInWithEmailAndPassword(window.firebaseAuth, email, password);
+    // Gunakan fbAuth (dari firebase-config.js), BUKAN window.firebaseAuth
+    const userCredential = await fbAuth.signInWithEmailAndPassword(email, password);
     const user = userCredential.user;
 
-    // 2. Buat sesi lokal sementara
     session = { role: selectedRole, name: user.email.split('@')[0] };
 
-    // 3. Arahkan user ke halaman dashboard
     if (selectedRole === 'customer') {
       $('custWho').textContent = session.name;
       prepCustomerForm();
-      try { await renderCustomer(); } catch(e) { console.log('Backend mungkin mati: ', e.message); }
       showScreen('customer');
     } else {
       $('mgmtWho').textContent = session.name;
-      try { await renderManagement(); } catch(e) { console.log('Backend mungkin mati: ', e.message); }
       showScreen('management');
     }
   } catch (error) {
@@ -105,19 +106,10 @@ async function login() {
   }
 }
 
-async function logout() {
-  try { await api('/api/logout', { method: 'POST' }); } catch { /* ignore */ }
+// Sesuaikan nama jadi doLogout()
+async function doLogout() {
+  try { await fbAuth.signOut(); } catch (e) { /* ignore */ }
   hardLogout();
-}
-function hardLogout() {
-  // RBAC: clear session + wipe rendered data for BOTH dashboards.
-  authToken = null; session = { role: null, name: null }; selectedRole = null;
-  ['custBookingsBody', 'custFeedbackList', 'mgmtBookingsBody', 'mgmtRefundsBody', 'summaryCards', 'techBody'].forEach(id => $(id).innerHTML = '');
-  $('custWho').textContent = '—'; $('mgmtWho').textContent = '—';
-  $('loginName').value = ''; $('loginPass').value = '';
-  $('roleCustomerBtn').classList.remove('active'); $('roleManagementBtn').classList.remove('active');
-  hide('loginError'); hide('bookingError'); hide('bookingSuccess');
-  showScreen('landing');
 }
 
 /* =============================================================
