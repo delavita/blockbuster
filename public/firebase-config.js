@@ -13,12 +13,12 @@
    ============================================================= */
 
 const firebaseConfig = {
-  apiKey:            "YOUR_API_KEY",
-  authDomain:        "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId:         "YOUR_PROJECT_ID",
-  storageBucket:     "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId:             "YOUR_APP_ID"
+  apiKey: "AIzaSyBsLFoFOZkDlfAuncaNu7EbStGUP97zNYs",
+  authDomain: "vita-64d71.firebaseapp.com",
+  projectId: "vita-64d71",
+  storageBucket: "vita-64d71.firebasestorage.app",
+  messagingSenderId: "1008164207419",
+  appId: "1:1008164207419:web:ab07ab424d4cc1d101551e"
 };
 
 // Initialise Firebase (compat SDK — works in plain <script> tags)
