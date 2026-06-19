@@ -1,0 +1,38 @@
+// firestore.rules
+// Deploy with: firebase deploy --only firestore:rules
+// (requires Firebase CLI — optional, not needed to run the prototype)
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users: only readable/writable by the owning user or management
+    match /users/{uid} {
+      allow read:   if request.auth.uid == uid;
+      allow create: if request.auth.uid == uid;
+      allow update: if request.auth.uid == uid;
+    }
+
+    // Bookings: customers see only their own; management sees all
+    match /bookings/{bookingId} {
+      allow read:   if request.auth != null &&
+                       (resource.data.customerUid == request.auth.uid ||
+                        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'management');
+      allow create: if request.auth != null &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'customer';
+      allow update: if request.auth != null;
+    }
+
+    // Technicians: readable by all authenticated, writable by management
+    match /technicians/{techId} {
+      allow read:   if request.auth != null;
+      allow write:  if request.auth != null &&
+                       get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'management';
+    }
+
+    // Seed sentinel
+    match /meta/{doc} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

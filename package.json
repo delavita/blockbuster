@@ -1,0 +1,12 @@
+{
+  "name": "bugbuster-pro-firebase",
+  "version": "2.0.0",
+  "description": "BugBuster Pro — Firebase Auth + Firestore edition. Zero npm dependencies.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

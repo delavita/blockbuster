@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BugBuster Pro — Pest Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet"/>
+<link rel="stylesheet" href="styles.css"/>
+</head>
+<body>
+
+<!-- =====================================================
+     SCREEN: LOADING (shown while Firebase initialises)
+     ===================================================== -->
+<div id="screen-loading" class="loading-screen">
+  <div class="loading-inner">
+    <div class="brand-mark"><span class="logo-square">BB</span> BugBuster Pro</div>
+    <div class="loader-bar"><div class="loader-fill"></div></div>
+    <p class="loading-msg" id="loadingMsg">Connecting to database…</p>
+  </div>
+</div>
+
+<!-- =====================================================
+     SCREEN: LANDING / LOGIN + REGISTER
+     ===================================================== -->
+<section id="screen-landing" class="landing hidden">
+  <div class="landing-inner">
+    <div class="brand-mark" style="justify-content:center;display:flex;align-items:center;gap:.55rem;margin-bottom:.2rem;">
+      <span class="logo-square">BB</span> BugBuster Pro
+    </div>
+    <p class="tagline">Professional pest control — book, track, and manage services.</p>
+
+    <!-- TAB SWITCHER: Login / Register -->
+    <div class="tab-bar">
+      <button class="tab-btn active" id="tabLogin" onclick="switchTab('login')">Sign in</button>
+      <button class="tab-btn" id="tabRegister" onclick="switchTab('register')">Create account</button>
+    </div>
+
+    <div class="card" id="panelLogin">
+      <h3 style="margin-bottom:1rem;">Sign in to your account</h3>
+
+      <!-- Role selector -->
+      <div class="role-grid">
+        <button type="button" class="role-btn active" id="roleCustomerBtn" onclick="selectRole('customer')">
+          <span class="role-icon">👤</span>
+          <span class="rt">Customer</span>
+          <span class="rd">Book &amp; track services</span>
+        </button>
+        <button type="button" class="role-btn" id="roleManagementBtn" onclick="selectRole('management')">
+          <span class="role-icon">🛠️</span>
+          <span class="rt">Management</span>
+          <span class="rd">Dispatch &amp; operations</span>
+        </button>
+      </div>
+
+      <div class="field">
+        <label for="loginEmail">Email <span class="req">*</span></label>
+        <input type="email" id="loginEmail" placeholder="you@example.com" autocomplete="email"/>
+      </div>
+      <div class="field">
+        <label for="loginPass">Password <span class="req">*</span></label>
+        <div class="pw-wrap">
+          <input type="password" id="loginPass" placeholder="Password" autocomplete="current-password"/>
+          <button type="button" class="pw-eye" onclick="togglePw('loginPass',this)">👁</button>
+        </div>
+      </div>
+
+      <div id="loginError" class="banner banner-error hidden"></div>
+      <button type="button" class="btn btn-primary btn-full" id="loginBtn" onclick="doLogin()">
+        <span class="btn-label">Sign in</span><span class="spinner hidden" id="loginSpinner"></span>
+      </button>
+
+      <div class="hint">
+        <strong>Demo accounts</strong><br/>
+        Customer — <code>customer@bugbuster.com</code> / <code>customer123</code><br/>
+        Management — <code>admin@bugbuster.com</code> / <code>admin123</code>
+      </div>
+    </div>
+
+    <div class="card hidden" id="panelRegister">
+      <h3 style="margin-bottom:1rem;">Create a customer account</h3>
+      <div class="field">
+        <label for="regName">Full name <span class="req">*</span></label>
+        <input type="text" id="regName" placeholder="Jane Cooper"/>
+      </div>
+      <div class="field">
+        <label for="regEmail">Email <span class="req">*</span></label>
+        <input type="email" id="regEmail" placeholder="you@example.com"/>
+      </div>
+      <div class="field">
+        <label for="regPass">Password <span class="req">*</span></label>
+        <div class="pw-wrap">
+          <input type="password" id="regPass" placeholder="Min. 6 characters"/>
+          <button type="button" class="pw-eye" onclick="togglePw('regPass',this)">👁</button>
+        </div>
+      </div>
+      <div id="regError" class="banner banner-error hidden"></div>
+      <div id="regSuccess" class="banner banner-success hidden"></div>
+      <button type="button" class="btn btn-primary btn-full" onclick="doRegister()">
+        <span>Create account</span><span class="spinner hidden" id="regSpinner"></span>
+      </button>
+    </div>
+  </div>
+</section>
+
+
+<!-- =====================================================
+     SCREEN: CUSTOMER DASHBOARD
+     ===================================================== -->
+<section id="screen-customer" class="hidden">
+  <header class="appbar">
+    <div class="brand-mark"><span class="logo-square">BB</span> BugBuster Pro</div>
+    <div class="who">
+      <span class="role-tag" id="custWho">—</span>
+      <span class="badge badge-cust">Customer</span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Log out</button>
+    </div>
+  </header>
+
+  <div class="page">
+    <div class="grid-2">
+
+      <!-- ===== INPUT DESIGN — booking form ===== -->
+      <div class="card sticky-form">
+        <h2>Book a service</h2>
+        <p class="meta-line form-sub">Fields marked <span class="req">*</span> are required.</p>
+
+        <div id="bookingError" class="banner banner-error hidden"></div>
+        <div id="bookingSuccess" class="banner banner-success hidden"></div>
+
+        <div class="field"><label for="bName">Your name <span class="req">*</span></label><input type="text" id="bName"/></div>
+        <div class="field"><label for="bAddress">Service address <span class="req">*</span></label><input type="text" id="bAddress" placeholder="Street, city"/></div>
+        <div class="field"><label for="bPhone">Phone <span class="req">*</span></label><input type="tel" id="bPhone" placeholder="e.g. 555-0123"/></div>
+        <div class="field">
+          <label for="bPest">Pest type <span class="req">*</span></label>
+          <select id="bPest">
+            <option value="">Select a pest type…</option>
+            <option value="Termite">🐜 Termite</option>
+            <option value="Rodent">🐭 Rodent</option>
+            <option value="General">🪲 General</option>
+          </select>
+        </div>
+        <div class="field"><label for="bDate">Preferred date <span class="req">*</span></label><input type="date" id="bDate"/></div>
+        <div class="field"><label for="bNotes">Notes <span class="opt">(optional)</span></label><textarea id="bNotes" placeholder="Entry points, severity, anything useful…"></textarea></div>
+        <button type="button" class="btn btn-primary btn-full" onclick="submitBooking()">
+          <span>Submit booking</span><span class="spinner hidden" id="bookSpinner"></span>
+        </button>
+      </div>
+
+      <!-- ===== OUTPUT DESIGN — bookings + feedback ===== -->
+      <div>
+        <div class="section">
+          <div class="section-head">
+            <h2>Your bookings</h2>
+            <button class="btn btn-ghost btn-sm" onclick="loadCustomerBookings()">↻ Refresh</button>
+          </div>
+          <div id="custBookingsWrap">
+            <div class="skeleton-table"></div>
+          </div>
+        </div>
+        <div class="section">
+          <div class="section-head"><h2>Your feedback</h2></div>
+          <div id="custFeedbackList"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- =====================================================
+     SCREEN: MANAGEMENT DASHBOARD
+     ===================================================== -->
+<section id="screen-management" class="hidden">
+  <header class="appbar">
+    <div class="brand-mark"><span class="logo-square">BB</span> BugBuster Pro</div>
+    <div class="who">
+      <span class="role-tag" id="mgmtWho">—</span>
+      <span class="badge badge-mgmt">Management</span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Log out</button>
+    </div>
+  </header>
+
+  <div class="page">
+    <!-- ===== INTERNAL OUTPUT — summary cards ===== -->
+    <div class="section">
+      <div class="cards" id="summaryCards">
+        <div class="stat skeleton-stat"></div>
+        <div class="stat skeleton-stat"></div>
+        <div class="stat skeleton-stat"></div>
+        <div class="stat skeleton-stat"></div>
+      </div>
+    </div>
+
+    <!-- ===== MASTER TABLE — all bookings ===== -->
+    <div class="section">
+      <div class="section-head">
+        <h2>All bookings</h2>
+        <button class="btn btn-ghost btn-sm" onclick="loadManagement()">↻ Refresh</button>
+      </div>
+      <div id="mgmtBookingsWrap"><div class="skeleton-table"></div></div>
+    </div>
+
+    <!-- ===== REFUNDS TABLE ===== -->
+    <div class="section">
+      <div class="section-head"><h2>Refund requests</h2></div>
+      <div id="mgmtRefundsWrap"><div class="skeleton-table"></div></div>
+    </div>
+
+    <!-- ===== TECHNICIAN ROSTER ===== -->
+    <div class="section">
+      <div class="section-head"><h2>Technician roster</h2></div>
+      <div id="techWrap"><div class="skeleton-table"></div></div>
+    </div>
+  </div>
+</section>
+
+
+<!-- =====================================================
+     MODAL (custom — replaces all native dialogs)
+     ===================================================== -->
+<div class="modal-overlay hidden" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal" id="modalBox" role="dialog" aria-modal="true"></div>
+</div>
+
+<!-- Firebase SDK (v9 compat mode — works in plain <script> tags) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<script src="firebase-config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
