@@ -1,7 +1,12 @@
 'use strict';
 /* =============================================================
    BUGBUSTER PRO v2 — Firebase Auth + Firestore frontend logic
-   Rewritten to match index.html + firebase-config.js (compat SDK).
+   (compat SDK; matches index.html)
+
+   What this file does:
+     • Restores sessions on reload (onAuthStateChanged).
+     • Auto-creates the two demo accounts on first run (no Console steps).
+     • RBAC login + customer/management dashboards.
 
    SAD concept mapping (for the report):
      Input Design       -> submitBooking(), doRegister(), modal forms
@@ -19,10 +24,18 @@ const COL_USERS    = 'users';
 const COL_TECHS    = 'technicians';
 const COL_BOOKINGS = 'bookings';
 
+/* ---------- Built-in demo accounts (auto-provisioned on first run) -------- */
+const DEMO_ACCOUNTS = [
+  { email: 'admin@bugbuster.com',    password: 'admin123',    role: 'management', displayName: 'Admin' },
+  { email: 'customer@bugbuster.com', password: 'customer123', role: 'customer',   displayName: 'Jane Cooper' }
+];
+
 /* ---------- App state (UI only — Firestore is the source of truth) -------- */
 let selectedRole = 'customer'; // which role button is highlighted
 let pendingRole  = null;       // role expected by an in-progress doLogin()
 let busyRegister = false;      // suppress the auth observer during registration
+let provisioning = false;      // suppress the auth observer while seeding demo accounts
+let demoChecked  = false;      // ensures provisioning runs at most once per load
 let me           = null;       // { uid, email, role, displayName }
 
 /* =============================================================
@@ -81,6 +94,7 @@ function authMessage(err) {
     case 'auth/too-many-requests':      return 'Too many attempts. Please wait a moment and try again.';
     case 'auth/email-already-in-use':   return 'An account with that email already exists.';
     case 'auth/weak-password':          return 'Password should be at least 6 characters.';
+    case 'auth/operation-not-allowed':  return 'Email/Password sign-in is not enabled in the Firebase console.';
     case 'auth/network-request-failed': return 'Network error — check your connection.';
     default: return (err && err.message) || 'Something went wrong. Please try again.';
   }
@@ -126,24 +140,66 @@ function openInfo(title, msg) {
 }
 
 /* =============================================================
+   FIRST-RUN PROVISIONING
+   Creates the demo accounts + their role docs automatically so the
+   prototype works without manually adding users in the Firebase Console.
+   Runs at most once per browser (tracked in localStorage).
+
+   NOTE: this is a prototype convenience. For production, create
+   management accounts manually and remove this routine.
+   ============================================================= */
+async function ensureDemoAccounts() {
+  try {
+    if (localStorage.getItem('bb_demo_seeded') === '1') return;
+  } catch (_) { /* localStorage unavailable — just proceed */ }
+
+  provisioning = true;
+  setLoading('Preparing demo accounts…');
+  try {
+    for (const acc of DEMO_ACCOUNTS) {
+      try {
+        // createUser also signs in as that user, so we can write its own doc.
+        const cred = await auth.createUserWithEmailAndPassword(acc.email, acc.password);
+        await db.collection(COL_USERS).doc(cred.user.uid).set({
+          email: acc.email, role: acc.role, displayName: acc.displayName
+        });
+        // While signed in as management, seed shared data (technicians).
+        if (acc.role === 'management') await ensureTechnicians();
+      } catch (err) {
+        // Already exists → nothing to create (its role doc self-heals on login).
+        if (!err || err.code !== 'auth/email-already-in-use') {
+          console.warn('Demo provisioning note for ' + acc.email + ':', err && err.message);
+        }
+      }
+    }
+    await auth.signOut().catch(() => {});
+    try { localStorage.setItem('bb_demo_seeded', '1'); } catch (_) {}
+  } finally {
+    provisioning = false;
+  }
+}
+
+/* =============================================================
    AUTH OBSERVER — single source of truth for routing + loading
-   (Bug 3 fix: Firebase restores the session on every page load.)
    ============================================================= */
 async function handleAuthChange(user) {
-  if (busyRegister) return; // ignore transitions caused by registration
+  if (provisioning || busyRegister) return; // ignore transitions we caused ourselves
 
   if (!user) {
+    if (!demoChecked) {
+      demoChecked = true;
+      await ensureDemoAccounts(); // ends signed-out
+    }
     me = null;
     showScreen('landing');
     switchTab('login');
     return;
   }
 
+  demoChecked = true; // a real session exists; never provision over it
   setLoading('Signing in…');
   try {
-    // Read the role document. If it doesn't exist yet, self-bootstrap one
-    // using the role being signed in as. (Prototype convenience so the app
-    // runs without manually creating Firestore docs. Lock this down for prod.)
+    // Read the role doc; self-bootstrap one if missing (prototype convenience).
     const ref = db.collection(COL_USERS).doc(user.uid);
     const snap = await ref.get();
     let role, displayName;
@@ -235,7 +291,7 @@ async function doRegister() {
     await db.collection(COL_USERS).doc(cred.user.uid).set({
       email: email, role: 'customer', displayName: name
     });
-    await auth.signOut(); // ask them to sign in (matches the README flow)
+    await auth.signOut(); // ask them to sign in afterwards
 
     banner('regSuccess', 'Account created!', ['You can now sign in with your email and password.']);
     $('regName').value = ''; $('regEmail').value = ''; $('regPass').value = '';
@@ -668,12 +724,12 @@ switchTab('login');
 // Single router: decides landing vs dashboard and always dismisses loading.
 auth.onAuthStateChanged(handleAuthChange);
 
-// Safety net: never let the loading screen hang forever (e.g. bad config / offline).
+// Safety net: never let the loading screen hang forever (bad config / offline).
 setTimeout(() => {
   const loading = $('screen-loading');
-  if (loading && !loading.classList.contains('hidden') && !auth.currentUser) {
+  if (loading && !loading.classList.contains('hidden') && !provisioning && !auth.currentUser) {
     showScreen('landing');
     banner('loginError', 'Still connecting…',
       ['If this keeps happening, re-check your Firebase config and your internet connection.']);
   }
-}, 8000);
+}, 15000);
